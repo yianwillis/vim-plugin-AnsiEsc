@@ -2096,6 +2096,8 @@ fun! s:MultiElementHandler()
    let mod          = "NONE,"
    let fg           = ""
    let bg           = ""
+   let r            = 0
+   let g            = 0
 
    " if the ansiesc is
    if index(mehrules,ansiesc) == -1
@@ -2103,7 +2105,7 @@ fun! s:MultiElementHandler()
 
     for code in aecodes
 
-     " handle multi-code sequences (38;5;color  and 48;5;color)
+     " handle multi-code sequences for 256-color (38;5;color  and 48;5;color)
      if skip == 38 && code == 5
       " handling <esc>[38;5
       let skip= 385
@@ -2111,7 +2113,7 @@ fun! s:MultiElementHandler()
       continue
      elseif skip == 385
       " handling <esc>[38;5;...
-      if has("gui") && has("gui_running")
+      if (has("gui") && has("gui_running")) || has("termguicolors")
        let fg= s:Ansi2Gui(code)
       else
        let fg= code
@@ -2127,7 +2129,7 @@ fun! s:MultiElementHandler()
       continue
      elseif skip == 485
       " handling <esc>[48;5;...
-      if has("gui") && has("gui_running")
+      if (has("gui") && has("gui_running")) || has("termguicolors")
        let bg= s:Ansi2Gui(code)
       else
        let bg= code
@@ -2136,10 +2138,58 @@ fun! s:MultiElementHandler()
 "      call Decho(" 4: building code=".code." skip=".skip.": mod<".mod."> fg<".fg."> bg<".bg.">")
       continue
 
+     " handle multi-code sequences for true-color (38;2;r;g;b  and 48;2;r;g;b)
+     elseif skip == 38 && code == 2
+      " handling <esc>[38;2
+      let skip = 382
+"      call Decho(" 1: building code=".code." skip=".skip.": mod<".mod."> fg<".fg."> bg<".bg.">")
+      continue
+     elseif skip == 382
+      " handling <esc>[38;2;r
+      let r = code
+      let skip = 3821
+      continue
+     elseif skip == 3821
+      " handling <esc>[38;2;r;g
+      let g = code
+      let skip = 3822
+      continue
+     elseif skip == 3822
+      " handling <esc>[38;2;r;g;b
+      if (has("gui") && has("gui_running")) || has("termguicolors")
+        let fg = s:Ansi2GuiTrueColor(r, g, code)
+      endif
+      let skip= 0
+"      call Decho(" 2: building code=".code." skip=".skip.": mod<".mod."> fg<".fg."> bg<".bg.">")
+      continue
+
+     elseif skip == 48 && code == 2
+      " handling <esc>[48;2
+      let skip = 482
+"      call Decho(" 1: building code=".code." skip=".skip.": mod<".mod."> fg<".fg."> bg<".bg.">")
+      continue
+     elseif skip == 482
+      " handling <esc>[48;2;r
+      let r = code
+      let skip = 4821
+      continue
+     elseif skip == 4821
+      " handling <esc>[48;2;r;g
+      let g = code
+      let skip = 4822
+      continue
+     elseif skip == 4822
+      " handling <esc>[48;2;r;g;b
+      if (has("gui") && has("gui_running")) || has("termguicolors")
+        let bg = s:Ansi2GuiTrueColor(r, g, code)
+      endif
+      let skip= 0
+"      call Decho(" 2: building code=".code." skip=".skip.": mod<".mod."> fg<".fg."> bg<".bg.">")
+      continue
+
      else
       let skip= 0
      endif
-
      " handle single-code sequences
      if code == 1
       let mod=mod."bold,"
@@ -2212,7 +2262,7 @@ fun! s:MultiElementHandler()
 
     " build highlighting rule
     let hirule= "hi ansiMEH".mehcnt
-    if has("gui") && has("gui_running")
+    if (has("gui") && has("gui_running")) || has("termguicolors")
      let hirule=hirule." gui=".mod
      if fg != ""| let hirule=hirule." guifg=".fg| endif
      if bg != ""| let hirule=hirule." guibg=".bg| endif
@@ -2255,6 +2305,16 @@ fun! s:Ansi2Gui(code)
    let b        = code2rgb[code%6]
    let guicolor = printf("#%02x%02x%02x",r,g,b)
   endif
+"  call Dret("s:Ansi2Gui ".guicolor)
+  return guicolor
+endfun
+
+" ---------------------------------------------------------------------
+" s:Ansi2GuiTrueColor: converts an ansi-escape sequence (for true-color GUI) {{{2
+"           to an equivalent gui color
+fun! s:Ansi2GuiTrueColor(r, g, b)
+"  call Dfunc("s:Ansi2GuiTrueColor(r=".a:r.".g=".a:g.",b=".a:b.")")
+  let guicolor = printf("#%02x%02x%02x",a:r,a:g,a:b)
 "  call Dret("s:Ansi2Gui ".guicolor)
   return guicolor
 endfun
